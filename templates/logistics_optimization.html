@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logistics Optimization - Supply Chain Optimizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Logistics Optimization</h1>
+            <p>Optimize routes, carriers, and transportation costs</p>
+        </header>
+
+        <nav>
+            <a href="/">Home</a>
+            <a href="/demand-forecasting">Demand Forecasting</a>
+            <a href="/inventory-optimization">Inventory Optimization</a>
+            <a href="/logistics-optimization" class="active">Logistics Optimization</a>
+        </nav>
+
+        <main>
+            <div class="upload-section">
+                <h2>Upload Logistics Data</h2>
+                <p style="color: #4a5568; margin: 10px 0 20px;">
+                    Upload CSV: delivery_partner, region, distance_km, delivery_cost, delivery_status
+                </p>
+
+                <div class="upload-area" id="uploadArea">
+                    <div style="font-size: 3em; margin-bottom: 15px;"></div>
+                    <p style="font-size: 1.2em; color: #4a5568;">
+                        Drag and drop your CSV file here or click to browse
+                    </p>
+                    <input type="file" id="fileInput" accept=".csv" />
+                    <button onclick="document.getElementById('fileInput').click()" class="btn" style="margin-top: 20px;">
+                        Choose File
+                    </button>
+                </div>
+
+                <div id="fileInfo" class="hidden" style="margin-top: 20px; text-align: left;">
+                    <div class="alert alert-success">
+                        <strong>✓ File loaded:</strong> <span id="fileName"></span> 
+                        (<span id="fileSize"></span>)
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-panel" id="configPanel" class="hidden">
+                <h3>Optimization Settings</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div class="form-group">
+                        <label for="optimizationGoal">Optimization Goal</label>
+                        <select id="optimizationGoal">
+                            <option value="cost">Minimize Cost</option>
+                            <option value="distance">Minimize Distance</option>
+                            <option value="time">Minimize Time</option>
+                            <option value="balanced">Balanced</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicleCapacity">Vehicle Capacity (kg)</label>
+                        <input type="number" id="vehicleCapacity" value="1000" min="100" step="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxDistance">Max Distance per Route (km)</label>
+                        <input type="number" id="maxDistance" value="200" min="50" step="10">
+                    </div>
+                </div>
+
+                <button onclick="runOptimization()" class="btn" style="width: 100%; margin-top: 20px; font-size: 1.1em;">
+                    Optimize Routes & Carriers
+                </button>
+            </div>
+
+            <div id="loadingSection" class="hidden" style="text-align: center; padding: 40px;">
+                <div class="spinner"></div>
+                <p style="margin-top: 20px; color: #4a5568; font-size: 1.1em;">
+                    Running optimization... Please wait
+                </p>
+            </div>
+
+            <div id="resultsSection" class="results hidden">
+                <h2>Optimization Results</h2>
+
+                <div class="metrics">
+                    <div class="metric-card">
+                        <h4>Cost Savings</h4>
+                        <div class="value" id="costSavings">-</div>
+                        <div class="change" id="costAmount">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Distance Reduction</h4>
+                        <div class="value" id="distanceReduction">-</div>
+                        <div class="change">Km saved</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Delay Reduction</h4>
+                        <div class="value" id="delayReduction">-</div>
+                        <div class="change">Fewer delays</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Route Efficiency</h4>
+                        <div class="value" id="efficiency">-</div>
+                        <div class="change">Improved</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <h3>Data Preview</h3>
+                    <div id="dataPreview" style="overflow-x: auto; margin-top: 15px;"></div>
+                </div>
+
+                <div style="margin-top: 30px; text-align: center;">
+                    <button class="btn" onclick="downloadResults()">Download Optimized Routes</button>
+                    <button class="btn" onclick="downloadReport()" style="margin-left: 15px;">📄 Download Report</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Supply Chain Optimization Platform | B.Tech Major Project</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/logistics.js') }}"></script>
+</body>
+</html>

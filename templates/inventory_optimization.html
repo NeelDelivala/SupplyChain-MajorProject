@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Optimization - Supply Chain Optimizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Inventory Optimization</h1>
+            <p>Optimize reorder points, safety stock, and order quantities</p>
+        </header>
+
+        <nav>
+            <a href="/">Home</a>
+            <a href="/demand-forecasting">Demand Forecasting</a>
+            <a href="/inventory-optimization" class="active">Inventory Optimization</a>
+            <a href="/logistics-optimization">Logistics Optimization</a>
+        </nav>
+
+        <main>
+            <div class="upload-section">
+                <h2>Upload Inventory Data</h2>
+                <p style="color: #4a5568; margin: 10px 0 20px;">
+                    Upload CSV: Product_ID, Current_Stock, Reorder_Point, Unit_Cost, Lead_Time
+                </p>
+
+                <div class="upload-area" id="uploadArea">
+                    <div style="font-size: 3em; margin-bottom: 15px;"></div>
+                    <p style="font-size: 1.2em; color: #4a5568;">
+                        Drag and drop your CSV file here or click to browse
+                    </p>
+                    <input type="file" id="fileInput" accept=".csv" />
+                    <button onclick="document.getElementById('fileInput').click()" class="btn" style="margin-top: 20px;">
+                        Choose File
+                    </button>
+                </div>
+
+                <div id="fileInfo" class="hidden" style="margin-top: 20px; text-align: left;">
+                    <div class="alert alert-success">
+                        <strong>✓ File loaded:</strong> <span id="fileName"></span> 
+                        (<span id="fileSize"></span>)
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-panel" id="configPanel" class="hidden">
+                <h3>Optimization Parameters</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div class="form-group">
+                        <label for="serviceLevel">Target Service Level (%)</label>
+                        <input type="number" id="serviceLevel" value="95" min="90" max="99" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="holdingCost">Holding Cost per Unit ($)</label>
+                        <input type="number" id="holdingCost" value="2.0" min="0.1" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="orderingCost">Ordering Cost per Order ($)</label>
+                        <input type="number" id="orderingCost" value="100" min="10" step="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="stockoutPenalty">Stockout Penalty ($)</label>
+                        <input type="number" id="stockoutPenalty" value="50" min="10" step="5">
+                    </div>
+                </div>
+
+                <button onclick="runOptimization()" class="btn" style="width: 100%; margin-top: 20px; font-size: 1.1em;">
+                    Optimize Inventory
+                </button>
+            </div>
+
+            <div id="loadingSection" class="hidden" style="text-align: center; padding: 40px;">
+                <div class="spinner"></div>
+                <p style="margin-top: 20px; color: #4a5568; font-size: 1.1em;">
+                    Running optimization... Please wait
+                </p>
+            </div>
+
+            <div id="resultsSection" class="results hidden">
+                <h2>Optimization Results</h2>
+
+                <div class="metrics">
+                    <div class="metric-card">
+                        <h4>Cost Reduction</h4>
+                        <div class="value" id="costReduction">-</div>
+                        <div class="change" id="costSavings">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Stockout Reduction</h4>
+                        <div class="value" id="stockoutReduction">-</div>
+                        <div class="change">Fewer stockouts</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Holding Cost Savings</h4>
+                        <div class="value" id="holdingSavings">-</div>
+                        <div class="change">Annual savings</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Service Level</h4>
+                        <div class="value" id="serviceDisplay">-</div>
+                        <div class="change" id="serviceImprovement">-</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <h3>Data Preview</h3>
+                    <div id="dataPreview" style="overflow-x: auto; margin-top: 15px;"></div>
+                </div>
+
+                <div style="margin-top: 30px; text-align: center;">
+                    <button class="btn" onclick="downloadResults()">📥 Download Optimized Policies</button>
+                    <button class="btn" onclick="downloadReport()" style="margin-left: 15px;">📄 Download Report</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Supply Chain Optimization Platform | B.Tech Major Project</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
+</body>
+</html>
