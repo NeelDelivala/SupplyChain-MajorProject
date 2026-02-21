@@ -24,7 +24,7 @@
             <div class="upload-section">
                 <h2>Upload Demand Data</h2>
                 <p style="color: #4a5568; margin: 10px 0 20px;">
-                    Upload a CSV file with columns: Date, SKU_ID, Region, Units_Sold
+                   <!-- Upload a CSV file with columns: Date, SKU_ID, Region, Units_Sold-->
                 </p>
 
                 <div class="upload-area" id="uploadArea">
@@ -40,7 +40,7 @@
 
                 <div id="fileInfo" class="hidden" style="margin-top: 20px; text-align: left;">
                     <div class="alert alert-success">
-                        <strong>✓ File loaded:</strong> <span id="fileName"></span> 
+                        <strong>File loaded:</strong> <span id="fileName"></span> 
                         (<span id="fileSize"></span>)
                     </div>
                 </div>
@@ -56,11 +56,11 @@
                     <div class="form-group">
                         <label for="modelType">Model Type</label>
                         <select id="modelType">
-                            <option value="auto">Auto (Recommended)</option>
+                            <!--<option value="auto">Auto (Recommended)</option>-->
                             <option value="arima">ARIMA</option>
-                            <option value="prophet">Prophet</option>
+                            <!--<option value="prophet">Prophet</option>
                             <option value="xgboost">XGBoost</option>
-                            <option value="lstm">LSTM</option>
+                            <option value="lstm">LSTM</option>-->
                         </select>
                     </div>
                     <div class="form-group">
@@ -103,26 +103,25 @@
                     <div class="metric-card">
                         <h4>Forecast Horizon</h4>
                         <div class="value" id="horizonDisplay">-</div>
-                        <div class="change" id="modelDisplay">-</div>
+                        <div class="change">Model: ARIMA</div>
+                        <div class="model-info" id="modelDisplay">-</div>
                     </div>
                 </div>
-
-                <div style="margin-top: 30px;">
+                <div id="dataPreview" class="data-preview-section">
                     <h3>Data Preview</h3>
-                    <div id="dataPreview" style="overflow-x: auto; margin-top: 15px;">
-                        <!-- Table will be inserted here -->
-                    </div>
-                </div>
-
-                <div style="margin-top: 30px; text-align: center;">
-                    <button class="btn" onclick="downloadResults()">
-                         Download Forecast Results (CSV)
-                    </button>
-                    <button class="btn" onclick="downloadReport()" style="margin-left: 15px;">
-                         Download Full Report (PDF)
-                    </button>
+                    <div class="table-container"></div>
                 </div>
             </div>
+            <div id="forecastResults" class="forecast-table-section">
+                <h3>Forecast Summary</h3>
+                <div class="table-container"></div>
+            </div>
+            <div class="download-section">
+                <button onclick="downloadResults()" class="btn btn-primary">📥 Download CSV</button>
+                <button onclick="downloadReport()" class="btn btn-secondary">📄 PDF Report</button>
+            </div>
+
+        </div>
         </main>
 
         <footer>
