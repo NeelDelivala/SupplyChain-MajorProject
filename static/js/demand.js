@@ -116,30 +116,39 @@ function displayResults(data) {
     document.getElementById('rmse').textContent = data.metrics.rmse.toFixed(1);
     document.getElementById('horizonDisplay').textContent = data.forecast_horizon + ' days';
     document.getElementById('modelDisplay').textContent = data.model_type.toUpperCase();
-
-    // Display data preview table
+    
+    // Data preview table (your existing code works!)
     if (data.preview && data.preview.length > 0) {
         let table = '<table><thead><tr>';
-
-        // Headers
         const columns = Object.keys(data.preview[0]);
-        columns.forEach(col => {
-            table += `<th>${col}</th>`;
-        });
+        columns.forEach(col => table += `<th>${col}</th>`);
         table += '</tr></thead><tbody>';
-
-        // Rows
+        
         data.preview.forEach(row => {
             table += '<tr>';
-            columns.forEach(col => {
-                table += `<td>${row[col]}</td>`;
-            });
+            columns.forEach(col => table += `<td>${row[col]}</td>`);
             table += '</tr>';
         });
-
         table += '</tbody></table>';
         document.getElementById('dataPreview').innerHTML = table;
     }
+    
+    // NEW: Add forecast summary table
+    let forecastTable = '<div class="forecast-summary"><h3>Forecast Results</h3>';
+    forecastTable += `<p><strong>Total Demand Forecast:</strong> ${data.total_demand_forecast?.toLocaleString() || 0} units</p>`;
+    forecastTable += '<table><thead><tr><th>SKU_WH</th><th>30-Day Total</th><th>Daily Avg</th></tr></thead><tbody>';
+    
+    for (const [sku_wh, fc] of Object.entries(data.forecasts || {})) {
+        forecastTable += `
+            <tr>
+                <td><strong>${sku_wh}</strong></td>
+                <td>${fc.total_forecast?.toLocaleString() || 0}</td>
+                <td>${fc.daily_avg || 0}</td>
+            </tr>`;
+    }
+    forecastTable += '</tbody></table></div>';
+    
+    document.getElementById('forecastResults').innerHTML = forecastTable;  // Add this div to HTML
 }
 
 function downloadResults() {
