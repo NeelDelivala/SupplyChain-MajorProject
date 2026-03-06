@@ -1,20 +1,32 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
+from src.demand import ARIMADemandForecaster
 import os
-from demand_forecast import ARIMADemandForecaster
-import joblib
 import pandas as pd
+import joblib
 from werkzeug.utils import secure_filename
 import traceback
 from functools import wraps
 import random
+from pathlib import Path
 from datetime import datetime, timedelta
 
 # Import user database only
 from models.user_db import create_user, verify_user, get_user_by_username, init_db
+from src.data_exploration import load_data
+from src.inventory_calculations import run_inventory_calculations
+from src.inventory_model import load_model, prepare_features
+from src.inventory_recommendations import run_integration
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = 'supply-chain-secret-key-change-in-production'
+PROJECT_ROOT = Path(__file__).parent
+DATA_PATH = PROJECT_ROOT / "retail_store_inventory.csv"
+MODEL_PATH = PROJECT_ROOT / "models" / "stock_risk_model.joblib"  
+ARIMA_MODEL_PATH = PROJECT_ROOT / "models" / "arima_models.pkl"
+
+_df_cache = None
+_model_cache = None
+forecaster=None
 
 # Configuration
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -64,7 +76,24 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+def get_data_and_model():
+    """Load data, run calculations, load model, and cache results."""
+    global _df_cache, _model_cache
+    if _df_cache is not None:
+        return _df_cache, _model_cache
 
+    df = load_data(str(DATA_PATH))
+    sample = os.environ.get("INVENTORY_SAMPLE")
+    if sample:
+        df = df.head(int(sample))
+    df_calc = run_inventory_calculations(df)
+    model = load_model(str(MODEL_PATH))
+    X, _ = prepare_features(df_calc)
+    df_calc = df_calc.copy()
+    df_calc["ml_risk_prediction"] = model.predict(X)
+    _df_cache = run_integration(df_calc)
+    _model_cache = model
+    return _df_cache, _model_cache
 # ============================================================================
 # AUTHENTICATION ROUTES
 # ============================================================================
@@ -79,7 +108,7 @@ def login():
 
         if success:
             session['user'] = user_data
-            flash(f'Welcome back, {user_data["username"]}!', 'success')
+            flash(f'Welcome back, {user_data["username"]}!', 'success') # type: ignore
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error='Invalid username or password')
@@ -102,7 +131,7 @@ def register():
         if password != confirm_password:
             return render_template('register.html', error='Passwords do not match')
 
-        if len(password) < 6:
+        if len(password) < 6: # type: ignore
             return render_template('register.html', error='Password must be at least 6 characters')
 
         success, message = create_user(username, email, password, full_name, organization)
@@ -151,89 +180,6 @@ def logistics_optimization_page():
 # ============================================================================
 # MVP - MOCK RESULTS FUNCTIONS
 # ============================================================================
-def generate_mock_inventory_results(df):
-    """Generate mock inventory optimization results"""
-
-    # Get unique products
-    if 'Product_ID' in df.columns:
-        products = df['Product_ID'].unique()[:5]  # First 5 products
-    else:
-        products = [f'Product_{i}' for i in range(1, 6)]
-
-    product_results = []
-    total_current = 0
-    total_optimized = 0
-
-    for product in products:
-        mean_demand = random.uniform(20, 100)
-        current_cost = random.uniform(10000, 50000)
-        eoq = round(random.uniform(100, 500), 2)
-        safety_stock = round(random.uniform(50, 150), 2)
-        rop = round(random.uniform(150, 350), 2)
-        optimized_cost = current_cost * random.uniform(0.7, 0.85)
-
-        total_current += current_cost
-        total_optimized += optimized_cost
-
-        product_results.append({
-            'product_id': product,
-            'demand_stats': {
-                'mean_daily': round(mean_demand, 2),
-                'std_daily': round(mean_demand * 0.15, 2),
-                'annual': round(mean_demand * 365, 2)
-            },
-            'current_policy': {
-                'stock_level': round(mean_demand * 30, 2),
-                'total_cost': round(current_cost, 2)
-            },
-            'optimized_policy': {
-                'eoq': eoq,
-                'safety_stock': safety_stock,
-                'reorder_point': rop,
-                'lead_time_demand': round(mean_demand * 7, 2),
-                'order_frequency_days': round(eoq / mean_demand, 2),
-                'total_cost': round(optimized_cost, 2)
-            },
-            'cost_breakdown': {
-                'ordering_cost': round(optimized_cost * 0.3, 2),
-                'holding_cost': round(optimized_cost * 0.7, 2),
-                'total_cost': round(optimized_cost, 2)
-            },
-            'improvements': {
-                'cost_savings': round(current_cost - optimized_cost, 2),
-                'savings_percent': round((1 - optimized_cost/current_cost) * 100, 2)
-            }
-        })
-
-    return {
-        'status': 'success',
-        'rows': len(df),
-        'columns': list(df.columns),
-        'preview': df.head(5).to_dict('records'),
-        'parameters': {
-            'service_level': 95,
-            'holding_cost': 2.0,
-            'ordering_cost': 100.0,
-            'stockout_penalty': 50.0
-        },
-        'improvements': {
-            'cost_reduction': round((1 - total_optimized/total_current) * 100, 2),
-            'total_savings': round(total_current - total_optimized, 2),
-            'stockout_reduction': round(random.uniform(30, 45), 2),
-            'service_level_achieved': 95
-        },
-        'optimization_results': {
-            'products_optimized': len(product_results),
-            'summary': {
-                'total_current_cost': round(total_current, 2),
-                'total_optimized_cost': round(total_optimized, 2),
-                'total_savings': round(total_current - total_optimized, 2),
-                'avg_savings_percent': round((1 - total_optimized/total_current) * 100, 2)
-            },
-            'product_results': product_results
-        }
-    }
-
 def generate_mock_logistics_results(df):
     """Generate mock logistics optimization results"""
 
@@ -292,8 +238,52 @@ def generate_mock_logistics_results(df):
     }
 
 # ============================================================================
-# API ENDPOINTS - Protected (MVP with Mock Results)
+# API ENDPOINTS - Protected
 # ============================================================================
+@app.route("/api/recommend")
+@login_required
+def api_recommend():
+    store_id = request.args.get("store_id")
+    product_id = request.args.get("product_id")
+    if not store_id or not product_id:
+        return jsonify({"error": "store_id and product_id required"}), 400
+
+    df, _ = get_data_and_model()
+    mask = (df["store_id"] == store_id) & (df["product_id"] == product_id)
+    rows = df[mask]
+    if rows.empty:
+        return jsonify({"error": "No data for this store/product"}), 404
+
+    row = rows.iloc[-1]
+    out = {
+        "store_id": str(row.get("store_id", "")),
+        "product_id": str(row.get("product_id", "")),
+        "inventory_level": int(row.get("inventory_level", 0)),
+        "demand_forecast": float(row.get("demand_forecast", 0)),
+        "units_sold": int(row.get("units_sold", 0)),
+        "stock_risk": str(row.get("stock_risk", "")),
+        "ml_risk_prediction": str(row.get("ml_risk_prediction", "")),
+        "recommendation": str(row.get("recommendation", "")),
+        "reorder_qty": float(row.get("reorder_qty", 0)),
+        "reorder_point": float(row.get("reorder_point", 0)),
+        "is_overstock": bool(row.get("is_overstock", False)),
+    }
+    return jsonify(out)
+
+@app.route("/api/stores")
+@login_required
+def api_stores():
+    df, _ = get_data_and_model()
+    stores = sorted(df["store_id"].dropna().unique().tolist())
+    return jsonify(stores)
+
+@app.route("/api/products")
+@login_required
+def api_products():
+    df, _ = get_data_and_model()
+    products = sorted(df["product_id"].dropna().unique().tolist())
+    return jsonify(products)
+
 
 @app.route('/api/forecast', methods=['POST'])
 @login_required
@@ -309,7 +299,7 @@ def arima_forecast():
         global forecaster
         if forecaster is None:
             forecaster = joblib.load('models/arima_models.pkl')
-            print(f"Loaded {len(forecaster)} models")
+            print(f"✅ Loaded {len(forecaster)} models")
         
         # Get form data with fallbacks
         horizon = int(request.form.get('forecast_horizon', 30))
@@ -324,12 +314,12 @@ def arima_forecast():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        print(f"Processing: {file.filename} ({horizon}d, {confidence*100}%)")
+        print(f"📄 Processing: {file.filename} ({horizon}d, {confidence*100}%)")
         
         # Read CSV SAFELY
         import io
         df = pd.read_csv(io.BytesIO(file.read()))
-        print(f"Loaded {len(df)} rows")
+        print(f"✅ Loaded {len(df)} rows")
         
         # Basic processing
         df['Date'] = pd.to_datetime(df['Date'])
@@ -351,7 +341,7 @@ def arima_forecast():
                 }
                 total_demand += int(forecast.sum())
         
-        print(f"Generated {len(forecasts)} forecasts")
+        print(f"✅ Generated {len(forecasts)} forecasts")
         
         return jsonify({
             'forecast_horizon': horizon,
@@ -363,56 +353,10 @@ def arima_forecast():
         })
         
     except Exception as e:
-        print(f"ERROR: {str(e)}")  # This WILL show in terminal
+        print(f"❌ ERROR: {str(e)}")  # This WILL show in terminal
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-@app.route('/api/optimize-inventory', methods=['POST'])
-@login_required
-def optimize_inventory_route():
-    """Inventory Optimization - MVP Version (Mock Results)"""
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-
-        file = request.files['file']
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-
-            df = pd.read_csv(filepath)
-
-            print(f"\n{'='*60}")
-            print(f" INVENTORY OPTIMIZATION (MVP) - User: {session['user']['username']}")
-            print(f"{'='*60}")
-            print(f"File: {filename}, Rows: {len(df)}")
-            print(f"Columns: {', '.join(df.columns.tolist())}")
-
-            # Generate mock results
-            results = generate_mock_inventory_results(df)
-
-            # Save results
-            results_file = os.path.join(app.config['RESULTS_FOLDER'], 
-                                       'inventory_policies', 
-                                       f'{session["user"]["username"]}_{filename}')
-
-            pd.DataFrame(results['optimization_results']['product_results']).to_csv(
-                results_file, index=False)
-
-            print(f" Mock optimization complete! Saved to {results_file}")
-            print(f"   Cost Reduction: {results['improvements']['cost_reduction']}%")
-            print(f"   Total Savings: ${results['improvements']['total_savings']}")
-            print(f"{'='*60}\n")
-
-            return jsonify(results)
-
-        return jsonify({'error': 'Invalid file type'}), 400
-
-    except Exception as e:
-        print(f" ERROR: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/optimize-logistics', methods=['POST'])
 @login_required
@@ -424,7 +368,7 @@ def optimize_logistics_route():
 
         file = request.files['file']
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            filename = secure_filename(file.filename) # type: ignore
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
 
@@ -483,7 +427,7 @@ if __name__ == '__main__':
     print("="*70)
     print()
     print("  MVP MODE: Using simulated results for demonstration")
-    print("   Real algorithms (ARIMA, EOQ/ROP, ACO) will be implemented later")
+    print("  Real algorithms (ARIMA, EOQ/ROP, ACO) will be implemented later")
     print()
     print(" Authentication: ENABLED")
     print("   Login required for all modules")
