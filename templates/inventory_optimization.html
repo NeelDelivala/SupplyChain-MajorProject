@@ -3,61 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Optimization - Supply Chain Optimizer</title>
+    <title>Demand Forecasting - Supply Chain Optimizer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<script>
-    let uploadedData = null;
-    
-    // After file upload success, load stores
-    function onFileUploaded(dfPreview) {
-        uploadedData = dfPreview;
-        loadStoresFromData();
-    }
-    
-    function loadStoresFromData() {
-        // This will be called after CSV upload
-        const storeSelect = document.getElementById('storeSelect');
-        storeSelect.innerHTML = '<option value="">Select store...</option>';
-        // Populate from uploaded CSV (your existing handleFile will call this)
-    }
-    
-    document.getElementById('storeSelect').addEventListener('change', function() {
-        const productSelect = document.getElementById('productSelect');
-        if (this.value) {
-            productSelect.disabled = false;
-            productSelect.innerHTML = '<option value="">Select SKU...</option>';
-        }
-    });
-</script>
-
 <body>
     <div class="container">
         <header>
-            <h1>Inventory Optimization</h1>
-            <p>Optimize reorder points, safety stock, and order quantities</p>
+            <h1>Demand Forecasting</h1>
+            <p>Predict future demand with machine learning</p>
+            <button class="theme-toggle" id="themeToggle" title="Toggle Dark Mode">🌙
         </header>
-
+        <div class="site-logo">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="ChaininForge.ai" />
+        </div>
         <nav>
             <a href="/">Home</a>
-            <a href="/demand-forecasting">Demand Forecasting</a>
-            <a href="/inventory-optimization" class="active">Inventory Optimization</a>
+            <a href="/demand-forecasting" class="active">Demand Forecasting</a>
+            <a href="/inventory-optimization">Inventory Optimization</a>
             <a href="/logistics-optimization">Logistics Optimization</a>
         </nav>
 
         <main>
             <div class="upload-section">
-                <h2>Upload Inventory Data</h2>
+                <h2>Upload Demand Data</h2>
                 <p style="color: #4a5568; margin: 10px 0 20px;">
-                   <!-- Upload CSV: Product_ID, Current_Stock, Reorder_Point, Unit_Cost, Lead_Time-->
+                   <!-- Upload a CSV file with columns: Date, SKU_ID, Region, Units_Sold-->
                 </p>
-                
+
                 <div class="upload-area" id="uploadArea">
                     <div style="font-size: 3em; margin-bottom: 15px;"></div>
                     <p style="font-size: 1.2em; color: #4a5568;">
                         Drag and drop your CSV file here or click to browse
                     </p>
-                    <input type="file" id="fileInput" accept=".csv" style="display: none;"/>
+                    <input type="file" id="fileInput" accept=".csv" />
+                    <button onclick="document.getElementById('fileInput').click()" class="btn" style="margin-top: 20px;">
+                        Choose File
+                    </button>
                 </div>
 
                 <div id="fileInfo" class="hidden" style="margin-top: 20px; text-align: left;">
@@ -67,110 +48,169 @@
                     </div>
                 </div>
             </div>
-
-            <div class="config-panel" id="configPanel" class="hidden">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Select Store</label>
-                        <select id="storeSelect" class="form-select">
-                            <option value="">Stores will load after CSV upload</option>
+            
+            <div class="config-panel" id="configPanel">
+                <h3>Configuration Parameters</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div class="form-group">
+                        <label for="forecastHorizon">Forecast Horizon (days)</label>
+                        <input type="number" id="forecastHorizon" value="30" min="7" max="90">
+                    </div>
+                    <div class="form-group">
+                        <label for="modelType">Model Type</label>
+                        <select id="modelType">
+                            <!--<option value="auto">Auto (Recommended)</option>-->
+                            <option value="arima">ARIMA</option>
+                            <!--<option value="prophet">Prophet</option>
+                            <option value="xgboost">XGBoost</option>
+                            <option value="lstm">LSTM</option>-->
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Select Product SKU</label>
-                        <select id="productSelect" class="form-select" disabled>
-                            <option value="">First select store</option>
-                        </select>
+                    <div class="form-group">
+                        <label for="confidenceLevel">Confidence Level (%)</label>
+                        <input type="number" id="confidenceLevel" value="95" min="80" max="99">
                     </div>
                 </div>
-                </div>
 
-                <button onclick="runOptimization()" class="btn" style="width: 100%; margin-top: 20px; font-size: 1.1em;">
-                    Optimize Inventory
+                <button onclick="runForecast()" class="btn" style="width: 100%; margin-top: 20px; font-size: 1.1em;">
+                     Run Forecast
                 </button>
             </div>
 
             <div id="loadingSection" class="hidden" style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
                 <p style="margin-top: 20px; color: #4a5568; font-size: 1.1em;">
-                    Running optimization... Please wait
+                    Running forecast model... Please wait
                 </p>
             </div>
 
             <div id="resultsSection" class="results hidden">
-                <h2>Optimization Results</h2>
+                <h2>Forecast Results</h2>
 
-                <!-- Replace your results display elements with these -->
-                <div class="results-grid">
-                    <div class="metric">
-                        <label title="Unique store identifier">Store ID: <span id="storeIdDisplay">-</span></label>
+                <div class="metrics">
+                    <div class="metric-card">
+                        <h4>Model Accuracy (MAPE)</h4>
+                        <div class="value" id="mape">-</div>
+                        <div class="change">Lower is better</div>
                     </div>
-                    <div class="metric">
-                        <label title="Product SKU code">Product ID: <span id="productIdDisplay">-</span></label>
+                    <div class="metric-card">
+                        <h4>R² Score</h4>
+                        <div class="value" id="r2">-</div>
+                        <div class="change">Higher is better</div>
                     </div>
-                    <div class="metric">
-                        <label title="Current stock quantity">Inventory Level: <span id="inventoryLevel">-</span></label>
+                    <div class="metric-card">
+                        <h4>RMSE</h4>
+                        <div class="value" id="rmse">-</div>
+                        <div class="change">Lower is better</div>
                     </div>
-                    <div class="metric">
-                        <label title="Predicted demand (30 days)">Demand Forecast: <span id="demandForecast">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Estimated monthly sales">Units Sold: <span id="unitsSold">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Stockout risk level">Stock Risk: <span id="stockRisk">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="ML model risk prediction">ML Risk: <span id="mlRisk">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Recommended action">Recommendation: <span id="recommendation">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Optimal order quantity (EOQ)">Reorder Qty: <span id="reorderQty">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Reorder when stock hits this level">Reorder Point: <span id="reorderPoint">-</span></label>
-                    </div>
-                    <div class="metric">
-                        <label title="Excess inventory detected?">Overstock: <span id="isOverstock">-</span></label>
+                    <div class="metric-card">
+                        <h4>Forecast Horizon</h4>
+                        <div class="value" id="horizonDisplay">-</div>
+                        <div class="change">Model: ARIMA</div>
+                        <div class="model-info" id="modelDisplay">-</div>
                     </div>
                 </div>
-
-                <style>
-                .metric label {
-                    display: block;
-                    font-weight: 500;
-                    cursor: help;
-                }
-                .metric label:hover::after {
-                    content: attr(title);
-                    position: absolute;
-                    background: #333;
-                    color: white;
-                    padding: 5px;
-                    border-radius: 4px;
-                    z-index: 10;
-                }
-                </style>
-                <div class="results-legend" style="margin-top: 20px; font-size: 0.85em; color: #666;">
-                    <div><strong>Recommendation Guide:</strong></div>
-                    <div>• MAINTAIN = Optimal stock levels</div>
-                    <div>• REDUCE_STOCK = Excess inventory detected</div>
-                    <div>• PLAN_REORDER = Order within 7 days</div>
-                    <div>• URGENT_REORDER = Order immediately</div>
-                </div>
-
-                <div style="margin-top: 30px;">
+                <div id="dataPreview" class="data-preview-section">
                     <h3>Data Preview</h3>
-                    <div id="dataPreview" style="overflow-x: auto; margin-top: 15px;"></div>
-                </div>
-
-                <div style="margin-top: 30px; text-align: center;">
-                    <button class="btn" onclick="downloadResults()">Download Optimized Policies</button>
-                    <button class="btn" onclick="downloadReport()" style="margin-left: 15px;">📄 Download Report</button>
+                    <div class="table-container"></div>
                 </div>
             </div>
+            <div id="forecastResults" class="forecast-table-section">
+                <h3>Forecast Summary</h3>
+                <div class="table-container"></div>
+            </div>
+            <div class="download-section">
+                <button onclick="downloadResults()" class="btn btn-primary">Download CSV</button>
+                <button onclick="downloadReport()" class="btn btn-secondary">PDF Report</button>
+            </div>
+            <!-- AI Chatbot -->
+            <div id="chatbot-container">
+            <button id="chatbot-toggle" class="chatbot-bubble">💬</button>
+            <div id="chatbot-window" class="chatbot-window hidden">
+                <div class="chatbot-header">
+                <span>AI Assistant</span>
+                <button id="chatbot-close">&times;</button>
+                </div>
+                <div id="chatbot-messages" class="chatbot-messages"></div>
+                <div class="chatbot-input-container">
+                <input type="text" id="chatbot-input" placeholder="Ask about supply chain...">
+                <button id="chatbot-send">Send</button>
+                </div>
+            </div>
+            </div>
+
+            <script>
+            // Chatbot functionality
+            const toggleBtn = document.getElementById('chatbot-toggle');
+            const windowEl = document.getElementById('chatbot-window');
+            const closeBtn = document.getElementById('chatbot-close');
+            const sendBtn = document.getElementById('chatbot-send');
+            const inputEl = document.getElementById('chatbot-input');
+            const messagesEl = document.getElementById('chatbot-messages');
+
+            toggleBtn.addEventListener('click', () => {
+                windowEl.classList.toggle('hidden');
+            });
+
+            closeBtn.addEventListener('click', () => {
+                windowEl.classList.add('hidden');
+            });
+
+            sendBtn.addEventListener('click', sendMessage);
+            inputEl.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            function sendMessage() {
+                const message = inputEl.value.trim();
+                if (!message) return;
+
+                addMessage('You', message);
+                inputEl.value = '';
+
+                // Simulate AI response (replace with real API later)
+                setTimeout(() => {
+                const responses = [
+                    "Great question about supply chain optimization!",
+                    "For demand forecasting, check your ARIMA model settings.",
+                    "Inventory optimization suggests checking reorder points.",
+                    "Logistics: Try minimizing cost in optimization goal."
+                ];
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                addMessage('AI', response);
+                }, 1000);
+            }
+
+            function addMessage(sender, text) {
+                const div = document.createElement('div');
+                div.className = `message ${sender.toLowerCase()}`;
+                div.textContent = `${sender}: ${text}`;
+                messagesEl.appendChild(div);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+            </script>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('themeToggle');
+            const body = document.body;
+            
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            body.setAttribute('data-theme', savedTheme);
+            toggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+            
+            toggle.addEventListener('click', () => {
+                const currentTheme = body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                toggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+            });
+            });
+            </script>
+
+        </div>
         </main>
 
         <footer>
@@ -178,6 +218,6 @@
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/demand.js') }}"></script>
 </body>
 </html>
